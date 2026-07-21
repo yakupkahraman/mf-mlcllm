@@ -35,12 +35,12 @@ export default function Home() {
         </Link>
       </header>
 
-      {/* Vercel-like glowing triangle/center piece */}
-      <div className="relative flex items-center justify-center w-full h-[300px] mb-8">
-        <div className="absolute w-[400px] h-[400px] bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-[100px] rounded-full mix-blend-screen" />
-        <div className="absolute w-0 h-0 border-l-[60px] border-l-transparent border-r-[60px] border-r-transparent border-b-[100px] border-b-white opacity-90 drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]" />
+      {/* Animated Glowing Background Blobs */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-[400px] z-0 pointer-events-none">
+        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-screen filter blur-[100px] opacity-40 animate-blob"></div>
+        <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-screen filter blur-[100px] opacity-40 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-500 rounded-full mix-blend-screen filter blur-[100px] opacity-40 animate-blob animation-delay-4000"></div>
       </div>
-
       <div className="z-10 flex flex-col items-center text-center px-4 max-w-3xl">
         <h1 className="text-5xl md:text-7xl font-bold mb-6 tracking-tighter leading-tight">
           Agentic Security <br /> Infrastructure
