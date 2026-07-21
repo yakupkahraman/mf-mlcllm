@@ -1,47 +1,16 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { CreateWebWorkerMLCEngine, InitProgressReport } from "@mlc-ai/web-llm";
+import { useState } from "react";
+import { useWebLLM } from "@/context/WebLLMContext";
 
 export default function Chat() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<{ role: string; content: string; blocked?: boolean }[]>([]);
-  const [engine, setEngine] = useState<any>(null);
-  const [progressText, setProgressText] = useState("Model is not loaded");
-  const [progressValue, setProgressValue] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [isModelLoading, setIsModelLoading] = useState(false);
-  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const { engine, isModelLoaded, isModelLoading, progressText, progressValue } = useWebLLM();
   
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://mf-mlcllm-api.onrender.com/api/v1";
-
-  const loadModel = async () => {
-    setIsModelLoading(true);
-    setProgressText("Initializing WebLLM...");
-    setProgressValue(0);
-
-    try {
-      const initProgressCallback = (report: InitProgressReport) => {
-        setProgressText(report.text);
-        setProgressValue(report.progress * 100);
-      };
-      
-      const newEngine = await CreateWebWorkerMLCEngine(
-        new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
-        "gemma-2b-it-q4f16_1-MLC", 
-        { initProgressCallback }
-      );
-      setEngine(newEngine);
-      setProgressText("Model Loaded");
-      setIsModelLoaded(true);
-    } catch (err) {
-      console.error("Engine init error:", err);
-      setProgressText("Error loading model. Check console.");
-    } finally {
-      setIsModelLoading(false);
-    }
-  };
 
   const handleSend = async () => {
     if (!input.trim() || !engine) return;
@@ -79,8 +48,14 @@ export default function Chat() {
       }
 
       // 2. Generate with WebLLM
+      const conversation = [
+        { role: "system", content: "You are a helpful, smart, and concise AI assistant. Answer in the same language as the user. If the user speaks Turkish, you must answer in Turkish." },
+        ...messages.filter(m => !m.blocked && m.role !== "system").map(m => ({ role: m.role as "user"|"assistant", content: m.content })),
+        { role: "user", content: userMsg }
+      ];
+
       const reply = await engine.chat.completions.create({
-        messages: [{ role: "user", content: userMsg }],
+        messages: conversation,
       });
       
       const responseText = reply.choices[0].message.content;
@@ -126,14 +101,6 @@ export default function Chat() {
           {/* Overlay for loading model */}
           {!isModelLoaded && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-lg">
-              {!isModelLoading ? (
-                <button 
-                  onClick={loadModel}
-                  className="bg-white text-black px-8 py-4 font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-lg shadow-white/10"
-                >
-                  Load Local Model (Gemma 2B)
-                </button>
-              ) : (
                 <div className="w-full max-w-md bg-gray-900 border border-gray-800 p-6 rounded-xl shadow-2xl">
                   <h3 className="text-white font-bold mb-4 text-center">Downloading Model Weights</h3>
                   
@@ -153,7 +120,6 @@ export default function Chat() {
                     ⚠️ This process will consume GPU RAM. Please do not close the tab.
                   </p>
                 </div>
-              )}
             </div>
           )}
 
