@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Shield } from "lucide-react";
+import { Shield, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,9 +17,9 @@ export default function Auth() {
   const router = useRouter();
   
   const [isChecking, setIsChecking] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // If already authenticated, redirect to /chat
     if (localStorage.getItem("auth")) {
       router.replace("/chat");
     } else {
@@ -25,87 +29,99 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login by setting localStorage
-    localStorage.setItem("auth", "true");
-    router.push("/chat");
+    setIsLoading(true);
+    // Simulate login by setting localStorage after a brief delay
+    setTimeout(() => {
+      localStorage.setItem("auth", "true");
+      router.push("/chat");
+    }, 800);
   };
 
   if (isChecking) {
-    return <div className="min-h-screen bg-black flex items-center justify-center"><div className="animate-pulse text-gray-500">Checking session...</div></div>;
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 font-sans relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden bg-background">
       {/* Glow Effect */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 blur-[100px] rounded-full pointer-events-none -z-10" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 blur-[100px] rounded-full pointer-events-none -z-10" />
 
       <div className="mb-8">
-        <Link href="/" className="flex items-center gap-2 text-white font-bold tracking-tighter text-xl">
-          <Shield className="w-6 h-6" />
+        <Link href="/" className="flex items-center gap-2 text-foreground font-bold tracking-tighter text-xl">
+          <Shield className="w-6 h-6 text-primary" />
           <span>LLM Sec</span>
         </Link>
       </div>
 
-      <div className="bg-black border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative z-10">
-        <h2 className="text-2xl font-semibold text-white mb-2 text-center tracking-tight">
-          {isLogin ? "Welcome back" : "Create an account"}
-        </h2>
-        <p className="text-sm text-gray-500 text-center mb-8">
-          {isLogin ? "Enter your details to sign in to your account" : "Enter your details to create a new account"}
-        </p>
+      <Card className="w-full max-w-md shadow-2xl border-muted/50 z-10 bg-background/50 backdrop-blur-xl">
+        <CardHeader className="text-center pb-4">
+          <CardTitle className="text-2xl font-bold tracking-tight">
+            {isLogin ? "Welcome back" : "Create an account"}
+          </CardTitle>
+          <CardDescription>
+            {isLogin ? "Enter your details to sign in to your account" : "Enter your details to create a new account"}
+          </CardDescription>
+        </CardHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <div>
-              <label className="block text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wider">Name</label>
-              <input
-                type="text"
-                className="w-full bg-black border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-white/30 transition-colors"
-                placeholder="John Doe"
-                value={name}
-                onChange={e => setName(e.target.value)}
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  required
+                  className="bg-background/50"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="hello@example.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
                 required
+                className="bg-background/50"
               />
             </div>
-          )}
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wider">Email</label>
-            <input
-              type="email"
-              className="w-full bg-black border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-white/30 transition-colors"
-              placeholder="hello@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wider">Password</label>
-            <input
-              type="password"
-              className="w-full bg-black border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-white/30 transition-colors"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          
-          <button 
-            type="submit" 
-            className="w-full bg-white text-black font-semibold py-2.5 rounded-lg hover:bg-gray-200 transition-colors mt-6 text-sm"
-          >
-            {isLogin ? "Sign In" : "Sign Up"}
-          </button>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                className="bg-background/50"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4 mt-2">
+            <Button type="submit" className="w-full font-semibold group" disabled={isLoading}>
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <>{isLogin ? "Sign In" : "Sign Up"} <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" /></>
+              )}
+            </Button>
+            
+            <p className="text-muted-foreground text-sm text-center">
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
+              <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-primary hover:underline font-medium">
+                {isLogin ? "Sign up" : "Log in"}
+              </button>
+            </p>
+          </CardFooter>
         </form>
-
-        <p className="text-gray-500 text-sm mt-6 text-center">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button onClick={() => setIsLogin(!isLogin)} className="text-white hover:underline">
-            {isLogin ? "Sign up" : "Log in"}
-          </button>
-        </p>
-      </div>
+      </Card>
     </div>
   );
 }
