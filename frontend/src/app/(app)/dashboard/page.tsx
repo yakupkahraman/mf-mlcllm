@@ -5,8 +5,17 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Shield, Zap, Activity } from 'lucide-react';
 
 export default function Dashboard() {
+  const defaultChartData = [
+    { time: '10:00', quality: 0.8, speed: 0.9 },
+    { time: '10:15', quality: 0.85, speed: 0.88 },
+    { time: '10:30', quality: 0.89, speed: 0.95 },
+    { time: '10:45', quality: 0.87, speed: 0.91 },
+    { time: '11:00', quality: 0.92, speed: 0.94 },
+  ];
+
   const [metrics, setMetrics] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>(defaultChartData);
 
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://mf-mlcllm-api.onrender.com/api/v1";
@@ -27,11 +36,25 @@ export default function Dashboard() {
           const formattedHistory = data.map((log: any) => ({
             id: log.id,
             prompt: log.prompt,
-            score: log.injection_score.toFixed(2),
+            score: (log.injection_score || 0).toFixed(2),
             blocked: log.is_blocked,
             date: new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }));
           setHistory(formattedHistory);
+
+          const liveChartData = data
+            .filter((log: any) => !log.is_blocked && (log.quality_score > 0 || log.speed_score > 0))
+            .slice(0, 10)
+            .reverse()
+            .map((log: any) => ({
+              time: new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              quality: log.quality_score,
+              speed: log.speed_score
+            }));
+            
+          if (liveChartData.length > 0) {
+            setChartData(liveChartData);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch backend metrics:", err);
@@ -43,14 +66,6 @@ export default function Dashboard() {
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
-
-  const chartData = [
-    { time: '10:00', quality: 0.8, speed: 0.9 },
-    { time: '10:15', quality: 0.85, speed: 0.88 },
-    { time: '10:30', quality: 0.89, speed: 0.95 },
-    { time: '10:45', quality: 0.87, speed: 0.91 },
-    { time: '11:00', quality: 0.92, speed: 0.94 },
-  ];
 
   return (
     <div className="flex flex-col font-sans">
