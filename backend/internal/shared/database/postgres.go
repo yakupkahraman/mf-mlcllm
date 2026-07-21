@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"mf-mlcllm/internal/shared/config"
@@ -17,6 +18,10 @@ func NewPostgresPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.P
 
 	poolCfg.MaxConns = cfg.MaxConns
 	poolCfg.MinConns = cfg.MinConns
+	
+	// Add proper connection idle/lifetime limits to prevent stale connections causing broken pipe errors
+	poolCfg.MaxConnLifetime = 1 * time.Hour
+	poolCfg.MaxConnIdleTime = 30 * time.Minute
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {

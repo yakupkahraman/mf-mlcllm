@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"mf-mlcllm/internal/application/llm"
 	"mf-mlcllm/internal/domain/model"
 )
 
@@ -13,7 +12,7 @@ type Repository struct {
 	db *pgxpool.Pool
 }
 
-func NewRepository(db *pgxpool.Pool) llm.PromptRepository {
+func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
@@ -55,7 +54,7 @@ func (r *Repository) GetHistory(ctx context.Context, userID uuid.UUID) ([]model.
 	}
 	defer rows.Close()
 
-	var logs []model.PromptLog
+	logs := make([]model.PromptLog, 0, 50)
 	for rows.Next() {
 		var l model.PromptLog
 		var resp *string
@@ -96,22 +95,21 @@ func (r *Repository) GetMetrics(ctx context.Context) (map[string]interface{}, er
 }
 
 func (r *Repository) GetDetailedMetrics(ctx context.Context) (map[string]interface{}, error) {
-	// 1. Total and Blocked Counts
-	var total, blocked int
-	err := r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs").Scan(&total)
-	if err != nil { return nil, err }
-	
-	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs WHERE is_blocked = true").Scan(&blocked)
-	if err != nil { return nil, err }
-
-	// 2. Quality Distribution (Low < 0.8, Medium 0.8-0.9, High > 0.9)
-	var low, medium, high int
-	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs WHERE is_blocked = false AND quality_score < 0.8").Scan(&low)
-	if err != nil { return nil, err }
-	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs WHERE is_blocked = false AND quality_score >= 0.8 AND quality_score <= 0.9").Scan(&medium)
-	if err != nil { return nil, err }
-	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs WHERE is_blocked = false AND quality_score > 0.9").Scan(&high)
-	if err != nil { return nil, err }
+	// 1. Single Aggregation Query for Total, Blocked, and Quality Distribution
+	queryMetrics := `
+		SELECT 
+			COUNT(*) as total, 
+			COALESCE(SUM(CASE WHEN is_blocked = true THEN 1 ELSE 0 END), 0) as blocked,
+			COALESCE(SUM(CASE WHEN is_blocked = false AND quality_score < 0.8 THEN 1 ELSE 0 END), 0) as low_quality,
+			COALESCE(SUM(CASE WHEN is_blocked = false AND quality_score >= 0.8 AND quality_score <= 0.9 THEN 1 ELSE 0 END), 0) as medium_quality,
+			COALESCE(SUM(CASE WHEN is_blocked = false AND quality_score > 0.9 THEN 1 ELSE 0 END), 0) as high_quality
+		FROM prompt_logs
+	`
+	var total, blocked, low, medium, high int
+	err := r.db.QueryRow(ctx, queryMetrics).Scan(&total, &blocked, &low, &medium, &high)
+	if err != nil {
+		return nil, err
+	}
 
 	// 3. Security Threats (Categories from injection logs)
 	var threatCategories = make(map[string]int)

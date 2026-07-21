@@ -3,14 +3,13 @@ package events
 import (
 	"context"
 	"log/slog"
-	"sync"
+	"sync/atomic"
 )
 
 // InProcessBus is an in-memory event bus using Go channels.
 // Suitable for Phase 1 / testing / single-instance deployments.
 type InProcessBus struct {
-	mu       sync.RWMutex
-	handlers map[string][]Handler
+	handlers atomic.Value // holds map[string][]Handler
 	logger   *slog.Logger
 	ch       chan inProcessEnvelope
 	done     chan struct{}
@@ -31,11 +30,11 @@ func NewInProcessBus(logger *slog.Logger, bufferSize int) *InProcessBus {
 		bufferSize = 256
 	}
 	b := &InProcessBus{
-		handlers: make(map[string][]Handler),
-		logger:   logger,
-		ch:       make(chan inProcessEnvelope, bufferSize),
-		done:     make(chan struct{}),
+		logger: logger,
+		ch:     make(chan inProcessEnvelope, bufferSize),
+		done:   make(chan struct{}),
 	}
+	b.handlers.Store(make(map[string][]Handler))
 	go b.dispatch()
 	return b
 }
@@ -51,11 +50,21 @@ func (b *InProcessBus) Publish(ctx context.Context, topic string, event Event) e
 	}
 }
 
-// Subscribe registers a handler for a topic.
+// Subscribe registers a handler for a topic using Copy-On-Write (Lock-free dispatch).
 func (b *InProcessBus) Subscribe(topic string, handler Handler) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.handlers[topic] = append(b.handlers[topic], handler)
+	// Simple spin lock for subscription updates (rare operation)
+	for {
+		oldMap := b.handlers.Load().(map[string][]Handler)
+		newMap := make(map[string][]Handler, len(oldMap)+1)
+		for k, v := range oldMap {
+			newMap[k] = v
+		}
+		newMap[topic] = append(newMap[topic], handler)
+		
+		if b.handlers.CompareAndSwap(oldMap, newMap) {
+			break
+		}
+	}
 	b.logger.Debug("in-process handler registered", "topic", topic)
 }
 
@@ -69,9 +78,9 @@ func (b *InProcessBus) Close() error {
 func (b *InProcessBus) dispatch() {
 	defer close(b.done)
 	for env := range b.ch {
-		b.mu.RLock()
-		handlers := b.handlers[env.topic]
-		b.mu.RUnlock()
+		// Lock-free dispatch via atomic load
+		handlersMap := b.handlers.Load().(map[string][]Handler)
+		handlers := handlersMap[env.topic]
 
 		for _, h := range handlers {
 			if err := h(env.ctx, env.event); err != nil {

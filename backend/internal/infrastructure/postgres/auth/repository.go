@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"mf-mlcllm/internal/application/auth"
 	"mf-mlcllm/internal/domain/model"
 )
 
@@ -13,7 +12,7 @@ type Repository struct {
 	db *pgxpool.Pool
 }
 
-func NewRepository(db *pgxpool.Pool) auth.UserRepository {
+func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
