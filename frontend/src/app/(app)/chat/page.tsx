@@ -110,46 +110,31 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-[85vh] max-w-4xl mx-auto w-full">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold flex items-center gap-2 text-primary">
-          <BrainCircuit className="w-6 h-6" /> Local Chat
-        </h2>
-        <Badge variant={isModelLoaded ? "default" : "secondary"} className={isModelLoaded ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}>
-          {progressText}
-        </Badge>
-      </div>
-      
-      <Card className="flex-1 flex flex-col relative overflow-hidden bg-background shadow-2xl border-muted/50">
-          
-        {/* Overlay for loading model */}
-        {!isModelLoaded && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-md flex flex-col items-center justify-center z-10">
-            {!isModelLoading ? (
-              <Button size="lg" onClick={loadModel} className="shadow-lg font-semibold px-8 py-6 text-lg">
-                Load Local Model (Gemma 2B)
-              </Button>
-            ) : (
-              <Card className="w-full max-w-md p-6 bg-card border-muted shadow-xl">
-                <h3 className="font-bold mb-4 text-center text-foreground">Downloading Model Weights</h3>
-                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden mb-4">
-                  <div className="h-full bg-primary transition-all duration-300 ease-out" style={{ width: `${progressValue}%` }} />
+    <div className="flex flex-col h-[calc(100vh-4rem)] relative w-full bg-background">
+      {/* Messages Area */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto pb-32 pt-8 px-4 custom-scrollbar">
+        <div className="max-w-3xl mx-auto w-full flex flex-col gap-6">
+          {!isModelLoaded && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <BrainCircuit className="w-16 h-16 text-muted-foreground opacity-50 mb-6" />
+              {!isModelLoading ? (
+                <Button size="lg" onClick={loadModel} className="rounded-full shadow-md">
+                  Load Local Model (Gemma 2B)
+                </Button>
+              ) : (
+                <div className="w-full max-w-sm space-y-4">
+                  <h3 className="font-semibold text-foreground">Downloading Model Weights</h3>
+                  <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                    <div className="h-full bg-primary transition-all duration-300 ease-out" style={{ width: `${progressValue}%` }} />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{progressText}</p>
                 </div>
-                <p className="text-sm text-muted-foreground text-center mb-4">{progressText}</p>
-                <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-md flex items-start gap-2">
-                  <AlertOctagon className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                  <p className="text-xs text-yellow-600/90 leading-relaxed">
-                    This process will consume GPU RAM. Please do not close the tab during initialization.
-                  </p>
-                </div>
-              </Card>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-6 custom-scrollbar">
           {messages.length === 0 && isModelLoaded && (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50">
+            <div className="flex flex-col items-center justify-center py-32 text-muted-foreground opacity-50">
               <BrainCircuit className="w-16 h-16 mb-4" />
               <p>Start a conversation with Gemma-2b.</p>
             </div>
@@ -160,23 +145,23 @@ export default function Chat() {
             const isBlocked = m.blocked;
             
             return (
-              <div key={i} className={`flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                <Avatar className={`w-8 h-8 border ${isBlocked ? 'border-destructive/50' : isUser ? 'border-primary/20' : 'border-muted'}`}>
-                  {isUser ? (
-                    <AvatarFallback className="bg-primary/10 text-primary"><User className="w-4 h-4" /></AvatarFallback>
-                  ) : (
-                    <AvatarFallback className={isBlocked ? "bg-destructive/10 text-destructive" : "bg-muted"}><Bot className="w-4 h-4" /></AvatarFallback>
-                  )}
-                </Avatar>
-                <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-[80%]`}>
+              <div key={i} className={`flex gap-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                {!isUser && (
+                  <Avatar className={`w-8 h-8 border ${isBlocked ? 'border-destructive/50' : 'border-muted'}`}>
+                    <AvatarFallback className={isBlocked ? "bg-destructive/10 text-destructive" : "bg-muted"}>
+                      <Bot className="w-4 h-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                
+                <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-[85%]`}>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium text-muted-foreground">{isUser ? 'You' : 'Assistant'}</span>
                     {isBlocked && <Badge variant="destructive" className="h-5 text-[10px]">Blocked</Badge>}
                   </div>
-                  <div className={`p-3 rounded-xl shadow-sm text-sm whitespace-pre-wrap leading-relaxed ${
-                    isBlocked ? 'bg-destructive/10 text-destructive-foreground border border-destructive/20 rounded-tl-none' 
-                    : isUser ? 'bg-primary text-primary-foreground rounded-tr-none' 
-                    : 'bg-muted/50 border border-muted text-foreground rounded-tl-none'
+                  <div className={`px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap ${
+                    isBlocked ? 'bg-destructive/10 text-destructive border border-destructive/20 rounded-2xl rounded-tl-sm' 
+                    : isUser ? 'bg-secondary text-secondary-foreground rounded-3xl rounded-tr-sm' 
+                    : 'text-foreground'
                   }`}>
                     {m.content}
                   </div>
@@ -186,11 +171,11 @@ export default function Chat() {
           })}
           
           {isGenerating && (
-            <div className="flex gap-4 flex-row">
+            <div className="flex gap-4 justify-start">
               <Avatar className="w-8 h-8 border border-muted">
                 <AvatarFallback className="bg-muted"><Bot className="w-4 h-4" /></AvatarFallback>
               </Avatar>
-              <div className="bg-muted/50 border border-muted rounded-xl rounded-tl-none p-4 flex gap-1.5 items-center">
+              <div className="flex gap-1.5 items-center px-4 py-3">
                 <div className="w-2 h-2 rounded-full bg-primary/50 animate-bounce" />
                 <div className="w-2 h-2 rounded-full bg-primary/50 animate-bounce delay-150" />
                 <div className="w-2 h-2 rounded-full bg-primary/50 animate-bounce delay-300" />
@@ -198,11 +183,17 @@ export default function Chat() {
             </div>
           )}
         </div>
+      </div>
 
-        <div className="p-4 border-t border-border bg-card">
-          <form onSubmit={handleSend} className="flex gap-2">
+      {/* Floating Input Box */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-12 px-4">
+        <div className="max-w-3xl mx-auto w-full">
+          <form 
+            onSubmit={handleSend} 
+            className="flex items-center gap-2 bg-background border border-input shadow-lg rounded-full px-4 py-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+          >
             <Input
-              className="flex-1 shadow-sm"
+              className="flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent text-base"
               placeholder="Message Gemma-2b..."
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -212,13 +203,19 @@ export default function Chat() {
               type="submit" 
               size="icon"
               disabled={!input.trim() || !isModelLoaded || isGenerating}
-              className="shadow-sm"
+              className="rounded-full shrink-0 w-8 h-8"
             >
               <SendHorizontal className="w-4 h-4" />
             </Button>
           </form>
+          <div className="text-center mt-2">
+            <span className="text-xs text-muted-foreground flex items-center justify-center gap-2">
+              <BrainCircuit className="w-3 h-3" />
+              Local AI processing - No data sent to cloud (except metrics)
+            </span>
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
