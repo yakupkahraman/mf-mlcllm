@@ -61,6 +61,43 @@ func run() error {
 	} else {
 		defer db.Close()
 		log.Info("connected to postgres")
+
+		// Auto-migrate tables
+		schema := `
+		CREATE TABLE IF NOT EXISTS users (
+			id UUID PRIMARY KEY,
+			email VARCHAR(255) UNIQUE NOT NULL,
+			password_hash VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+			updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS prompt_logs (
+			id UUID PRIMARY KEY,
+			user_id UUID,
+			prompt TEXT NOT NULL,
+			response TEXT,
+			injection_score DOUBLE PRECISION,
+			speed_score DOUBLE PRECISION,
+			quality_score DOUBLE PRECISION,
+			total_score DOUBLE PRECISION,
+			is_blocked BOOLEAN NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS injection_logs (
+			id UUID PRIMARY KEY,
+			prompt_log_id UUID NOT NULL,
+			category VARCHAR(255) NOT NULL,
+			pattern_match TEXT NOT NULL,
+			confidence DOUBLE PRECISION NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL
+		);`
+		
+		_, migErr := db.Exec(ctx, schema)
+		if migErr != nil {
+			log.Error("failed to run DB migrations", "error", migErr)
+		} else {
+			log.Info("DB migrations completed successfully")
+		}
 	}
 
 	redisClient, err := cache.NewRedisClient(ctx, cfg.Redis)
