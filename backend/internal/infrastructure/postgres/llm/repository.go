@@ -40,9 +40,9 @@ func (r *Repository) SaveLog(ctx context.Context, log *model.PromptLog) error {
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) UpdateScores(ctx context.Context, logID uuid.UUID, resp string, speed float64, quality float64, total float64) error {
-	query := `UPDATE prompt_logs SET response = $1, speed_score = $2, quality_score = $3, total_score = $4 WHERE id = $5`
-	_, err := r.db.Exec(ctx, query, resp, speed, quality, total, logID)
+func (r *Repository) UpdateScores(ctx context.Context, logID uuid.UUID, userID uuid.UUID, resp string, speed float64, quality float64, total float64) error {
+	query := `UPDATE prompt_logs SET response = $1, speed_score = $2, quality_score = $3, total_score = $4 WHERE id = $5 AND user_id = $6`
+	_, err := r.db.Exec(ctx, query, resp, speed, quality, total, logID, userID)
 	return err
 }
 

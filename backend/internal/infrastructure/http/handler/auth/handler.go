@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/google/uuid"
+	"github.com/go-playground/validator/v10"
 	"mf-mlcllm/internal/application/auth"
+	appMiddleware "mf-mlcllm/internal/infrastructure/http/middleware"
 )
+
+var validate = validator.New()
 
 type Handler struct {
 	uc *auth.UseCase
@@ -19,6 +22,10 @@ func NewHandler(uc *auth.UseCase) *Handler {
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req auth.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validate.Struct(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -39,6 +46,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if err := validate.Struct(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	resp, err := h.uc.Login(r.Context(), req)
 	if err != nil {
@@ -51,9 +62,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
-	userIDStr := r.Header.Get("X-User-ID")
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
+	userID, ok := appMiddleware.GetUserID(r.Context())
+	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

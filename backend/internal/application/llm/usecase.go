@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/microcosm-cc/bluemonday"
 	"mf-mlcllm/internal/domain/model"
 )
 
 type PromptRepository interface {
 	SaveLog(ctx context.Context, log *model.PromptLog) error
-	UpdateScores(ctx context.Context, logID uuid.UUID, resp string, speed float64, quality float64, total float64) error
+	UpdateScores(ctx context.Context, logID uuid.UUID, userID uuid.UUID, resp string, speed float64, quality float64, total float64) error
 	GetHistory(ctx context.Context, userID uuid.UUID) ([]model.PromptLog, error)
 	GetMetrics(ctx context.Context) (map[string]interface{}, error)
 	GetDetailedMetrics(ctx context.Context) (map[string]interface{}, error)
@@ -63,7 +64,11 @@ func (uc *UseCase) DetectInjection(prompt string) (float64, []model.InjectionLog
 }
 
 func (uc *UseCase) Submit(ctx context.Context, userID uuid.UUID, req SubmitRequest) (SubmitResponse, error) {
-	score, injLogs := uc.DetectInjection(req.Prompt)
+	// XSS Sanitization
+	sanitizer := bluemonday.UGCPolicy()
+	safePrompt := sanitizer.Sanitize(req.Prompt)
+
+	score, injLogs := uc.DetectInjection(safePrompt)
 	isBlocked := score >= 0.7
 
 	promptLog := &model.PromptLog{
@@ -93,8 +98,10 @@ func (uc *UseCase) Submit(ctx context.Context, userID uuid.UUID, req SubmitReque
 	}, nil
 }
 
-func (uc *UseCase) ScoreLocal(ctx context.Context, req ScoreLocalRequest) error {
-	return uc.repo.UpdateScores(ctx, req.PromptLogID, req.Response, req.SpeedScore, req.QualityScore, req.TotalScore)
+func (uc *UseCase) ScoreLocal(ctx context.Context, req ScoreLocalRequest, userID uuid.UUID) error {
+	sanitizer := bluemonday.UGCPolicy()
+	safeResponse := sanitizer.Sanitize(req.Response)
+	return uc.repo.UpdateScores(ctx, req.PromptLogID, userID, safeResponse, req.SpeedScore, req.QualityScore, req.TotalScore)
 }
 
 func (uc *UseCase) History(ctx context.Context, userID uuid.UUID) ([]model.PromptLog, error) {

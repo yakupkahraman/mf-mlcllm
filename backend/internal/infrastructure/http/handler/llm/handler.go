@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/google/uuid"
+	"github.com/go-playground/validator/v10"
 	"mf-mlcllm/internal/application/llm"
+	appMiddleware "mf-mlcllm/internal/infrastructure/http/middleware"
 )
+
+var validate = validator.New()
 
 type Handler struct {
 	uc *llm.UseCase
@@ -16,19 +19,19 @@ func NewHandler(uc *llm.UseCase) *Handler {
 	return &Handler{uc: uc}
 }
 
-func getUserID(r *http.Request) (uuid.UUID, error) {
-	return uuid.Parse(r.Header.Get("X-User-ID"))
-}
-
 func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
-	userID, err := getUserID(r)
-	if err != nil {
+	userID, ok := appMiddleware.GetUserID(r.Context())
+	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	var req llm.SubmitRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validate.Struct(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -44,13 +47,23 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ScoreLocal(w http.ResponseWriter, r *http.Request) {
+	userID, ok := appMiddleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var req llm.ScoreLocalRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if err := validate.Struct(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	err := h.uc.ScoreLocal(r.Context(), req)
+	err := h.uc.ScoreLocal(r.Context(), req, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -60,8 +73,8 @@ func (h *Handler) ScoreLocal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
-	userID, err := getUserID(r)
-	if err != nil {
+	userID, ok := appMiddleware.GetUserID(r.Context())
+	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

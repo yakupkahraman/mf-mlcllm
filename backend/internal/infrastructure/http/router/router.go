@@ -3,16 +3,20 @@ package router
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
+	infraAuth "mf-mlcllm/internal/infrastructure/auth"
 	"mf-mlcllm/internal/infrastructure/http/handler/auth"
 	"mf-mlcllm/internal/infrastructure/http/handler/common"
 	"mf-mlcllm/internal/infrastructure/http/handler/llm"
+	appMiddleware "mf-mlcllm/internal/infrastructure/http/middleware"
 )
 
 type Dependencies struct {
@@ -25,6 +29,7 @@ type Dependencies struct {
 	AuthHandler   *auth.Handler
 	LLMHandler    *llm.Handler
 	CommonHandler *common.Handler
+	JWTService    *infraAuth.JWTService
 }
 
 func New(deps Dependencies) http.Handler {
@@ -34,6 +39,10 @@ func New(deps Dependencies) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(appMiddleware.MaxBytes(deps.MaxBodyBytes))
+	
+	// AppSec: Basic Rate Limiting to prevent DoS attacks (100 reqs/min per IP)
+	r.Use(httprate.LimitByIP(100, 1*time.Minute))
 
 	corsOpts := cors.Options{
 		AllowedOrigins:   deps.CORSAllowedOrigins,
@@ -52,15 +61,22 @@ func New(deps Dependencies) http.Handler {
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", deps.AuthHandler.Register)
 			r.Post("/login", deps.AuthHandler.Login)
-			r.Get("/me", deps.AuthHandler.Me) // Normally would use JWT middleware to get user, here using X-User-ID for simplicity
+			
+			r.Group(func(r chi.Router) {
+				r.Use(appMiddleware.Auth(deps.JWTService))
+				r.Get("/me", deps.AuthHandler.Me)
+			})
 		})
 
 		r.Route("/llm", func(r chi.Router) {
-			r.Post("/submit", deps.LLMHandler.Submit)
-			r.Post("/score-local", deps.LLMHandler.ScoreLocal)
-			r.Get("/history", deps.LLMHandler.History)
-			r.Get("/metrics", deps.LLMHandler.Metrics)
-			r.Get("/metrics/detailed", deps.LLMHandler.DetailedMetrics)
+			r.Group(func(r chi.Router) {
+				r.Use(appMiddleware.Auth(deps.JWTService))
+				r.Post("/submit", deps.LLMHandler.Submit)
+				r.Post("/score-local", deps.LLMHandler.ScoreLocal)
+				r.Get("/history", deps.LLMHandler.History)
+				r.Get("/metrics", deps.LLMHandler.Metrics)
+				r.Get("/metrics/detailed", deps.LLMHandler.DetailedMetrics)
+			})
 		})
 	})
 

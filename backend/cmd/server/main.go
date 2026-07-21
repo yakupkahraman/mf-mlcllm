@@ -179,6 +179,7 @@ func buildDependencies(
 	deps.AuthHandler = authHandler.NewHandler(authUseCase)
 	deps.LLMHandler = llmHandler.NewHandler(llmUseCase)
 	deps.CommonHandler = commonHandler.NewHandler()
+	deps.JWTService = jwtService
 
 	return deps
 }

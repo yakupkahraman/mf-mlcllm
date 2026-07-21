@@ -64,3 +64,22 @@ func (s *JWTService) GenerateTokens(userID string) (string, string, error) {
 
 	return access, refresh, nil
 }
+
+func (s *JWTService) VerifyToken(tokenStr string) (string, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &customClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.secret, nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if claims, ok := token.Claims.(*customClaims); ok && token.Valid {
+		return claims.UserID, nil
+	}
+
+	return "", fmt.Errorf("invalid token")
+}
