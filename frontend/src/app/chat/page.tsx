@@ -1,42 +1,47 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { CreateWebWorkerMLCEngine, MLCEngine, InitProgressReport } from "@mlc-ai/web-llm";
+import { useState, useRef } from "react";
+import { CreateWebWorkerMLCEngine, InitProgressReport } from "@mlc-ai/web-llm";
 
 export default function Chat() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<{ role: string; content: string; blocked?: boolean }[]>([]);
   const [engine, setEngine] = useState<any>(null);
-  const [progress, setProgress] = useState("");
+  const [progressText, setProgressText] = useState("Model is not loaded");
+  const [progressValue, setProgressValue] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
-  const initStarted = useRef(false);
+  
+  const [isModelLoading, setIsModelLoading] = useState(false);
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
   
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
-  useEffect(() => {
-    if (initStarted.current) return;
-    initStarted.current = true;
+  const loadModel = async () => {
+    setIsModelLoading(true);
+    setProgressText("Initializing WebLLM...");
+    setProgressValue(0);
 
-    async function init() {
+    try {
       const initProgressCallback = (report: InitProgressReport) => {
-        setProgress(report.text);
+        setProgressText(report.text);
+        setProgressValue(report.progress * 100);
       };
       
-      try {
-        const newEngine = await CreateWebWorkerMLCEngine(
-          new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
-          "gemma-2b-it-q4f16_1-MLC", // q4f16 is much more memory efficient than q4f32
-          { initProgressCallback }
-        );
-        setEngine(newEngine);
-        setProgress("Model Loaded");
-      } catch (err) {
-        console.error("Engine init error:", err);
-        setProgress("Error loading model");
-      }
+      const newEngine = await CreateWebWorkerMLCEngine(
+        new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
+        "gemma-2b-it-q4f16_1-MLC", 
+        { initProgressCallback }
+      );
+      setEngine(newEngine);
+      setProgressText("Model Loaded");
+      setIsModelLoaded(true);
+    } catch (err) {
+      console.error("Engine init error:", err);
+      setProgressText("Error loading model. Check console.");
+    } finally {
+      setIsModelLoading(false);
     }
-    init();
-  }, []);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || !engine) return;
@@ -96,10 +101,47 @@ export default function Chat() {
       <div className="max-w-4xl mx-auto flex flex-col h-[90vh]">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tighter text-white">Console</h1>
-          <span className="text-sm bg-gray-800 px-3 py-1 rounded text-green-400">{progress || "Loading Model..."}</span>
+          <span className={`text-sm px-3 py-1 rounded ${isModelLoaded ? 'bg-green-900/30 text-green-400' : 'bg-gray-800 text-gray-400'}`}>
+            {progressText}
+          </span>
         </div>
         
-        <div className="flex-1 overflow-y-auto bg-gray-900 border border-gray-800 rounded-lg p-6 flex flex-col gap-4">
+        <div className="flex-1 overflow-y-auto bg-gray-900 border border-gray-800 rounded-lg p-6 flex flex-col gap-4 relative">
+          
+          {/* Overlay for loading model */}
+          {!isModelLoaded && (
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-lg">
+              {!isModelLoading ? (
+                <button 
+                  onClick={loadModel}
+                  className="bg-white text-black px-8 py-4 font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-lg shadow-white/10"
+                >
+                  Load Local Model (Gemma 2B)
+                </button>
+              ) : (
+                <div className="w-full max-w-md bg-gray-900 border border-gray-800 p-6 rounded-xl shadow-2xl">
+                  <h3 className="text-white font-bold mb-4 text-center">Downloading Model Weights</h3>
+                  
+                  {/* Progress Bar Container */}
+                  <div className="h-3 w-full bg-gray-800 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className="h-full bg-white transition-all duration-300 ease-out"
+                      style={{ width: `${progressValue}%` }}
+                    />
+                  </div>
+                  
+                  <p className="text-xs text-gray-400 text-center font-sans">
+                    {progressText}
+                  </p>
+                  
+                  <p className="text-xs text-yellow-500/80 mt-4 text-center bg-yellow-900/20 p-2 rounded">
+                    ⚠️ This process will consume GPU RAM. Please do not close the tab.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {messages.map((m, i) => (
             <div key={i} className={`p-4 rounded-md ${m.role === "user" ? "bg-gray-800 self-end ml-12" : m.blocked ? "bg-red-900/50 border border-red-500 self-start mr-12 text-red-200" : "bg-black border border-gray-700 self-start mr-12"}`}>
               <p className="text-xs text-gray-500 mb-1 capitalize">{m.role}</p>
@@ -112,16 +154,16 @@ export default function Chat() {
         <div className="mt-4 flex gap-2">
           <input
             type="text"
-            className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gray-500"
+            className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gray-500 disabled:opacity-50"
             placeholder="Enter prompt..."
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSend()}
-            disabled={!engine || isGenerating}
+            disabled={!isModelLoaded || isGenerating}
           />
           <button 
             onClick={handleSend}
-            disabled={!engine || isGenerating}
+            disabled={!isModelLoaded || isGenerating}
             className="bg-white text-black px-6 font-semibold rounded-lg hover:bg-gray-200 disabled:opacity-50"
           >
             Send
