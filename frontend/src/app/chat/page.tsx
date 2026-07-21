@@ -9,22 +9,31 @@ export default function Chat() {
   const [engine, setEngine] = useState<any>(null);
   const [progress, setProgress] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const initStarted = useRef(false);
   
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
   useEffect(() => {
+    if (initStarted.current) return;
+    initStarted.current = true;
+
     async function init() {
       const initProgressCallback = (report: InitProgressReport) => {
         setProgress(report.text);
       };
       
-      const newEngine = await CreateWebWorkerMLCEngine(
-        new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
-        "gemma-2b-it-q4f32_1-MLC",
-        { initProgressCallback }
-      );
-      setEngine(newEngine);
-      setProgress("Model Loaded");
+      try {
+        const newEngine = await CreateWebWorkerMLCEngine(
+          new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
+          "gemma-2b-it-q4f16_1-MLC", // q4f16 is much more memory efficient than q4f32
+          { initProgressCallback }
+        );
+        setEngine(newEngine);
+        setProgress("Model Loaded");
+      } catch (err) {
+        console.error("Engine init error:", err);
+        setProgress("Error loading model");
+      }
     }
     init();
   }, []);
