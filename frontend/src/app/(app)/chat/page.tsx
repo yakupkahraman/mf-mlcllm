@@ -49,7 +49,7 @@ export default function Chat() {
 
       // 2. Generate with WebLLM
       const conversation = [
-        { role: "system", content: "You are a helpful, smart, and concise AI assistant. Answer in the same language as the user. If the user speaks Turkish, you must answer in Turkish." },
+        { role: "system", content: "You are a helpful, smart, and concise AI assistant. Answer in the same language as the user." },
         ...messages.filter(m => !m.blocked && m.role !== "system").map(m => ({ role: m.role as "user"|"assistant", content: m.content })),
         { role: "user", content: userMsg }
       ];
