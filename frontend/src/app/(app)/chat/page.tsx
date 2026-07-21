@@ -8,7 +8,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<{ role: string; content: string; blocked?: boolean }[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const { engine, isModelLoaded, isModelLoading, progressText, progressValue } = useWebLLM();
+  const { engine, isModelLoaded, isModelLoading, progressText, progressValue, loadModel } = useWebLLM();
   
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://mf-mlcllm-api.onrender.com/api/v1";
 
@@ -101,6 +101,14 @@ export default function Chat() {
           {/* Overlay for loading model */}
           {!isModelLoaded && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-lg">
+              {!isModelLoading ? (
+                <button 
+                  onClick={loadModel}
+                  className="bg-white text-black px-8 py-4 font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-lg shadow-white/10"
+                >
+                  Load Local Model (Gemma 2B)
+                </button>
+              ) : (
                 <div className="w-full max-w-md bg-gray-900 border border-gray-800 p-6 rounded-xl shadow-2xl">
                   <h3 className="text-white font-bold mb-4 text-center">Downloading Model Weights</h3>
                   
@@ -120,6 +128,7 @@ export default function Chat() {
                     ⚠️ This process will consume GPU RAM. Please do not close the tab.
                   </p>
                 </div>
+              )}
             </div>
           )}
 

@@ -1,7 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { CreateWebWorkerMLCEngine, InitProgressReport } from "@mlc-ai/web-llm";
+import { CreateWebWorkerMLCEngine, InitProgressReport, hasModelInCache } from "@mlc-ai/web-llm";
+
+const MODEL_ID = "gemma-2b-it-q4f16_1-MLC";
 
 type WebLLMContextType = {
   engine: any;
@@ -9,6 +11,7 @@ type WebLLMContextType = {
   isModelLoading: boolean;
   progressText: string;
   progressValue: number;
+  loadModel: () => Promise<void>;
 };
 
 const WebLLMContext = createContext<WebLLMContextType | undefined>(undefined);
@@ -17,50 +20,47 @@ export function WebLLMProvider({ children }: { children: React.ReactNode }) {
   const [engine, setEngine] = useState<any>(null);
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [isModelLoading, setIsModelLoading] = useState(false);
-  const [progressText, setProgressText] = useState("Initializing Auto-Load...");
+  const [progressText, setProgressText] = useState("Model is not loaded");
   const [progressValue, setProgressValue] = useState(0);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadModel = async () => {
-      if (engine || isModelLoading) return; // Prevent double load
-      setIsModelLoading(true);
-      setProgressText("Initializing WebLLM Engine...");
+  const loadModel = async () => {
+    if (engine || isModelLoading) return;
+    setIsModelLoading(true);
+    setProgressText("Initializing WebLLM Engine...");
+    
+    try {
+      const initProgressCallback = (report: InitProgressReport) => {
+        setProgressText(report.text);
+        setProgressValue(report.progress * 100);
+      };
+
+      const newEngine = await CreateWebWorkerMLCEngine(
+        new Worker(new URL("../app/(app)/chat/worker.ts", import.meta.url), { type: "module" }),
+        MODEL_ID,
+        { initProgressCallback }
+      );
       
-      try {
-        const initProgressCallback = (report: InitProgressReport) => {
-          if (!isMounted) return;
-          setProgressText(report.text);
-          setProgressValue(report.progress * 100);
-        };
+      setEngine(newEngine);
+      setProgressText("Model Loaded");
+      setIsModelLoaded(true);
+      setIsModelLoading(false);
+    } catch (err) {
+      console.error("Engine init error:", err);
+      setProgressText("Error loading model. Check console.");
+      setIsModelLoading(false);
+    }
+  };
 
-        const newEngine = await CreateWebWorkerMLCEngine(
-          new Worker(new URL("../app/(app)/chat/worker.ts", import.meta.url), { type: "module" }),
-          "Llama-3-8B-Instruct-q4f32_1-MLC",
-          { initProgressCallback }
-        );
-        
-        if (isMounted) {
-          setEngine(newEngine);
-          setProgressText("Model Loaded Automatically");
-          setIsModelLoaded(true);
-          setIsModelLoading(false);
-        }
-      } catch (err) {
-        console.error("Engine init error:", err);
-        if (isMounted) {
-          setProgressText("Error loading model. Check console.");
-          setIsModelLoading(false);
-        }
+  useEffect(() => {
+    // Check if model is already in cache on mount
+    hasModelInCache(MODEL_ID).then((isCached) => {
+      if (isCached) {
+        setProgressText("Model found in cache. Auto-loading...");
+        loadModel();
       }
-    };
-
-    loadModel();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [engine]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <WebLLMContext.Provider
@@ -70,6 +70,7 @@ export function WebLLMProvider({ children }: { children: React.ReactNode }) {
         isModelLoading,
         progressText,
         progressValue,
+        loadModel,
       }}
     >
       {children}
