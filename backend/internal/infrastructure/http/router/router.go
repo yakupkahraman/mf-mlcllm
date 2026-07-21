@@ -60,6 +60,7 @@ func New(deps Dependencies) http.Handler {
 			r.Post("/score-local", deps.LLMHandler.ScoreLocal)
 			r.Get("/history", deps.LLMHandler.History)
 			r.Get("/metrics", deps.LLMHandler.Metrics)
+			r.Get("/metrics/detailed", deps.LLMHandler.DetailedMetrics)
 		})
 	})
 

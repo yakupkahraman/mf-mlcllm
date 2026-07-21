@@ -94,3 +94,50 @@ func (r *Repository) GetMetrics(ctx context.Context) (map[string]interface{}, er
 		"average_speed": avgSpeed,
 	}, nil
 }
+
+func (r *Repository) GetDetailedMetrics(ctx context.Context) (map[string]interface{}, error) {
+	// 1. Total and Blocked Counts
+	var total, blocked int
+	err := r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs").Scan(&total)
+	if err != nil { return nil, err }
+	
+	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs WHERE is_blocked = true").Scan(&blocked)
+	if err != nil { return nil, err }
+
+	// 2. Quality Distribution (Low < 0.8, Medium 0.8-0.9, High > 0.9)
+	var low, medium, high int
+	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs WHERE is_blocked = false AND quality_score < 0.8").Scan(&low)
+	if err != nil { return nil, err }
+	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs WHERE is_blocked = false AND quality_score >= 0.8 AND quality_score <= 0.9").Scan(&medium)
+	if err != nil { return nil, err }
+	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM prompt_logs WHERE is_blocked = false AND quality_score > 0.9").Scan(&high)
+	if err != nil { return nil, err }
+
+	// 3. Security Threats (Categories from injection logs)
+	var threatCategories = make(map[string]int)
+	query := `SELECT category, COUNT(*) FROM injection_logs GROUP BY category`
+	rows, err := r.db.Query(ctx, query)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var cat string
+			var count int
+			if err := rows.Scan(&cat, &count); err == nil {
+				threatCategories[cat] = count
+			}
+		}
+	}
+
+	return map[string]interface{}{
+		"security_ratio": map[string]int{
+			"clean":   total - blocked,
+			"blocked": blocked,
+		},
+		"quality_distribution": map[string]int{
+			"low":    low,
+			"medium": medium,
+			"high":   high,
+		},
+		"threat_categories": threatCategories,
+	}, nil
+}

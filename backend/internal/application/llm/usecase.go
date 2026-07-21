@@ -14,6 +14,7 @@ type PromptRepository interface {
 	UpdateScores(ctx context.Context, logID uuid.UUID, resp string, speed float64, quality float64, total float64) error
 	GetHistory(ctx context.Context, userID uuid.UUID) ([]model.PromptLog, error)
 	GetMetrics(ctx context.Context) (map[string]interface{}, error)
+	GetDetailedMetrics(ctx context.Context) (map[string]interface{}, error)
 }
 
 type UseCase struct {
@@ -102,4 +103,8 @@ func (uc *UseCase) History(ctx context.Context, userID uuid.UUID) ([]model.Promp
 
 func (uc *UseCase) Metrics(ctx context.Context) (map[string]interface{}, error) {
 	return uc.repo.GetMetrics(ctx)
+}
+
+func (uc *UseCase) DetailedMetrics(ctx context.Context) (map[string]interface{}, error) {
+	return uc.repo.GetDetailedMetrics(ctx)
 }

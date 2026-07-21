@@ -86,3 +86,14 @@ func (h *Handler) Metrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(metrics)
 }
+
+func (h *Handler) DetailedMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics, err := h.uc.DetailedMetrics(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(metrics)
+}
