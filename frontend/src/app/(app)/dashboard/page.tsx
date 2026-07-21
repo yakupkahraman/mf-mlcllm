@@ -33,10 +33,8 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-gray-200 p-8 font-sans">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold tracking-tighter text-white mb-8">Security & Analytics Dashboard</h1>
-        
+    <div className="flex flex-col font-sans">
+      <div className="max-w-6xl mx-auto w-full">
         {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl flex items-center">
@@ -120,7 +118,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>

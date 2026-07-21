@@ -114,16 +114,14 @@ export default function Chat() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-gray-200 p-8 font-mono">
-      <div className="max-w-4xl mx-auto flex flex-col h-[90vh]">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tighter text-white">Console</h1>
-          <span className={`text-sm px-3 py-1 rounded ${isModelLoaded ? 'bg-green-900/30 text-green-400' : 'bg-gray-800 text-gray-400'}`}>
-            {progressText}
-          </span>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto bg-gray-900 border border-gray-800 rounded-lg p-6 flex flex-col gap-4 relative">
+    <div className="flex flex-col h-[85vh] font-mono">
+      <div className="mb-4 flex items-center justify-end">
+        <span className={`text-xs px-2.5 py-1 rounded-md border ${isModelLoaded ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-white/5 text-gray-400 border-white/10'}`}>
+          {progressText}
+        </span>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto bg-black border border-white/10 rounded-xl p-6 flex flex-col gap-4 relative shadow-2xl">
           
           {/* Overlay for loading model */}
           {!isModelLoaded && (
@@ -186,7 +184,6 @@ export default function Chat() {
             Send
           </button>
         </div>
-      </div>
     </div>
   );
 }
