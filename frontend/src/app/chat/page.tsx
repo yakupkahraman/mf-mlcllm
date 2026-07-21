@@ -53,15 +53,26 @@ export default function Chat() {
     setIsGenerating(true);
 
     try {
-      // 1. Submit for injection detection
-      const res = await fetch(`${API_URL}/llm/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-User-ID": "00000000-0000-0000-0000-000000000000" },
-        body: JSON.stringify({ prompt: userMsg }),
-      });
-      const data = await res.json();
+      // 1. Try injection detection via backend (gracefully skip if backend is offline)
+      let isBlocked = false;
+      let promptLogId: string | null = null;
 
-      if (data.is_blocked) {
+      try {
+        const res = await fetch(`${API_URL}/llm/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-User-ID": "00000000-0000-0000-0000-000000000000" },
+          body: JSON.stringify({ prompt: userMsg }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          isBlocked = data.is_blocked;
+          promptLogId = data.prompt_log_id;
+        }
+      } catch {
+        // Backend is offline — skip injection check, run in offline mode
+      }
+
+      if (isBlocked) {
         setMessages(prev => [...prev, { role: "system", content: "🚨 WARNING: Prompt Injection Detected. Generation blocked.", blocked: true }]);
         setIsGenerating(false);
         return;
@@ -75,22 +86,28 @@ export default function Chat() {
       const responseText = reply.choices[0].message.content;
       setMessages(prev => [...prev, { role: "assistant", content: responseText || "" }]);
 
-      // 3. Score
-      await fetch(`${API_URL}/llm/score-local`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt_log_id: data.prompt_log_id,
-          response: responseText,
-          speed_score: 0.9,
-          quality_score: 0.85,
-          total_score: 0.87,
-        }),
-      });
+      // 3. Try scoring via backend (gracefully skip if offline)
+      if (promptLogId) {
+        try {
+          await fetch(`${API_URL}/llm/score-local`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt_log_id: promptLogId,
+              response: responseText,
+              speed_score: 0.9,
+              quality_score: 0.85,
+              total_score: 0.87,
+            }),
+          });
+        } catch {
+          // Backend offline — skip scoring
+        }
+      }
 
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { role: "system", content: "Error communicating with server." }]);
+      setMessages(prev => [...prev, { role: "system", content: "WebLLM generation error. Check console." }]);
     }
 
     setIsGenerating(false);
